@@ -5,6 +5,7 @@
 #include <readline/history.h> 
 #include <readline/readline.h> 
 #include "lexer.h"
+#include "parser.h"
 
 // Helper function to resolve history file path at ~/.shellforge_history
 static char *get_history_path(void) {
@@ -87,6 +88,28 @@ int main(void)
         } while (token.type != TOKEN_END);
         printf("----------------------------------------\n");
 
+        // Parse and print the pipeline structure
+        Pipeline pipeline = parse_pipeline(line);
+        printf("\n========== PIPELINE ==========\n\n");
+        for (int c_idx = 0; c_idx < pipeline.command_count; c_idx++) {
+            Command *cmd = &pipeline.commands[c_idx];
+            printf("Command %d\n", c_idx + 1);
+            printf("------------------------------\n");
+            printf("Arguments\n");
+            for (int a_idx = 0; a_idx < cmd->argc; a_idx++) {
+                printf("argv[%d] = %s\n", a_idx, cmd->argv[a_idx]);
+            }
+            printf("%-12s : %s\n", "Input", cmd->input_file ? cmd->input_file : "None");
+            printf("%-12s : %s\n", "Output", cmd->output_file ? cmd->output_file : "None");
+            printf("%-12s : %s\n", "Append", cmd->append_mode ? "Yes" : "No");
+            printf("%-12s : %s\n", "Background", cmd->background ? "Yes" : "No");
+            if (c_idx < pipeline.command_count - 1) {
+                printf("\n");
+            }
+        }
+        printf("==============================\n");
+
+        free_pipeline(&pipeline);
         free(line); 
     }     
 

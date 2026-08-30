@@ -4,7 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 
-char *expand_variables(const char *word) {
+char *expand_word(const char *word) {
     if (!word) return NULL;
     
     size_t cap = 256;

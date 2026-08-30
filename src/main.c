@@ -1,122 +1,77 @@
-#define _POSIX_C_SOURCE 200809L
-#include <stdio.h>  
-#include <stdlib.h>  
-#include <string.h> 
-#include <readline/history.h> 
-#include <readline/readline.h> 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <string.h>
+#include <readline/history.h>
+#include <readline/readline.h>
+#include "history.h"
+#include "token.h"
 #include "lexer.h"
 #include "parser.h"
+#include "expand.h"
+#include "builtin.h"
+#include "executor.h"
 
-// Helper function to resolve history file path at ~/.shellforge_history
-static char *get_history_path(void) {
-    char *home = getenv("HOME");
-    char *path;
-    if (home) {
-        size_t len = strlen(home) + strlen("/.shellforge_history") + 1;
-        path = malloc(len);
-        if (path) {
-            sprintf(path, "%s/.shellforge_history", home);
-            return path;
+int main(void)
+{
+    // Display a welcome banner when the shell starts
+    printf("=====================================\n");
+    printf("      Shellforge \n");
+    printf(" A Unix Style Shell written in C\n");
+    printf("=====================================\n");
+
+    token_list_t tokens;
+    pipeline_t pipeline;
+    char *line;
+
+    while (1)
+    {
+        line = readline("shellforge$ ");
+        if (line == NULL)
+        {
+            printf("\nGoodbye!\n");
+            break;
         }
-    }
-    return strdup(".shellforge_history");
-}
+        if (strlen(line) == 0)
+        {
+            free(line);
+            continue;
+        }
 
-int main(void) 
-{ 
-    // Display a welcome banner when the shell starts 
-    printf("=====================================\n"); 
-    printf("Shellforge \n"); 
-    printf(" A Unix Style Shell written in C\n"); 
-    printf("=====================================\n"); 
-    
-    // Load history at startup
-    char *history_file = get_history_path();
-    if (history_file) {
-        read_history(history_file);
-    }
+        if (strcmp(line, "history") == 0)
+        {
+            print_history();
+            free(line);
+            continue;
+        }
 
-    char *line; 
-    while (1) 
-    { 
-        line = readline("shellforge$ "); 
-        if (line == NULL) 
-        { 
-            printf("\nGoodbye!\n"); 
-            break; 
-        } 
-        if (strlen(line) == 0) 
-        { 
-            free(line); 
-            continue; 
-        } 
+        // milestone 1 - enabling history
+        add_history(line);
 
-        // Check if the command is "history"
-        if (strcmp(line, "history") == 0) 
-        { 
-            printf("------ Command History ------\n");
-            HIST_ENTRY **list = history_list();
-            if (list) {
-                for (int i = 0; list[i] != NULL; i++) {
-                    printf("%2d  %s\n", i + 1, list[i]->line);
-                }
-            }
-            printf("-----------------------------\n");
-            add_history(line); 
-            free(line); 
-            continue; 
-        } 
+        // milestone 2.1 - tokenization and lexer
+        lexer(line, &tokens);
+        token_print(&tokens);
 
-        add_history(line); 
-        if (strcmp(line, "exit") == 0) 
-        { 
-            free(line); 
-            printf("Exiting...\n"); 
-            break; 
-        } 
-        
-        // Print tokenization results (with a leading space before the index)
-        printf("\n---------------- TOKENS ----------------\n");
-        Lexer lexer;
-        lexer_init(&lexer, line);
-        int token_index = 0;
-        Token token;
-        do {
-            token = lexer_next_token(&lexer);
-            printf(" %d : %-12s %s\n", token_index++, token_type_to_string(token.type), token.value ? token.value : "");
-            free_token(&token);
-        } while (token.type != TOKEN_END);
-        printf("----------------------------------------\n");
+        // milestone 2.2 - expansion of environment variables and parser
+        if (parser(&tokens, &pipeline))
+        {
+            expand_variables(&pipeline);
+            pipeline_print(&pipeline);
+        }
 
-        // Parse and print the pipeline structure
-        Pipeline pipeline = parse_pipeline(line);
-        printf("\n========== PIPELINE ==========\n\n");
-        for (int c_idx = 0; c_idx < pipeline.command_count; c_idx++) {
-            Command *cmd = &pipeline.commands[c_idx];
-            printf("Command %d\n", c_idx + 1);
-            printf("------------------------------\n");
-            printf("Arguments\n");
-            for (int a_idx = 0; a_idx < cmd->argc; a_idx++) {
-                printf("argv[%d] = %s\n", a_idx, cmd->argv[a_idx]);
-            }
-            printf("%-12s : %s\n", "Input", cmd->input_file ? cmd->input_file : "None");
-            printf("%-12s : %s\n", "Output", cmd->output_file ? cmd->output_file : "None");
-            printf("%-12s : %s\n", "Append", cmd->append_mode ? "Yes" : "No");
-            printf("%-12s : %s\n", "Background", cmd->background ? "Yes" : "No");
-            if (c_idx < pipeline.command_count - 1) {
-                printf("\n");
+        // Execute commands in the pipeline
+        for (int i = 0; i < pipeline.command_count; i++)
+        {
+            int result = execute_command(&pipeline.commands[i]);
+            if (result == 1)
+            {
+                free_pipeline(&pipeline);
+                free(line);
+                return 0;
             }
         }
-        printf("==============================\n");
 
         free_pipeline(&pipeline);
-        free(line); 
-    }     
-
-    // Save history upon exit
-    if (history_file) {
-        write_history(history_file);
-        free(history_file);
+        free(line);
     }
-    return 0; 
+    return 0;
 }

@@ -59,10 +59,11 @@ int main(void)
         }
 
         // Execute commands in the pipeline
-        for (int i = 0; i < pipeline.command_count; i++)
+        if (pipeline.command_count > 0)
         {
-            int result = execute_command(&pipeline.commands[i]);
-            if (result == 1)
+            int result = execute_pipeline(&pipeline);
+            if (pipeline.command_count == 1 && is_builtin(&pipeline.commands[0]) &&
+                strcmp(pipeline.commands[0].argv[0], "exit") == 0 && result == 1)
             {
                 free_pipeline(&pipeline);
                 free(line);

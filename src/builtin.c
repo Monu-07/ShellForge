@@ -95,7 +95,6 @@ static int builtin_pwd(command_t *cmd)
     /*
      * Display current directory.
      */
-    printf("my self declared pwd\n");
     printf("%s\n", current_directory);
 
     return 0;
@@ -125,8 +124,6 @@ static int builtin_echo(command_t *cmd)
             printf(" ");
         }
     }
-    printf("\n");
-    printf("my self declared pwd\n");
     printf("\n");
 
     return 0;
